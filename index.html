@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="gl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boletín Ridimoas - Xestión e Consulta</title>
+  <!-- Estilos con Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Cliente oficial de Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen p-4 md:p-8">
+
+  <div class="max-w-5xl mx-auto space-y-8">
+    
+    <!-- Cabeceira -->
+    <header class="bg-emerald-800 text-white p-6 rounded-xl shadow-md text-center">
+      <h1 class="text-3xl font-bold">Boletín Ridimoas</h1>
+      <p class="text-emerald-100 text-sm mt-1">Buscador e catálogo de artigos</p>
+    </header>
+
+    <!-- Formularios e Busca -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- Formulario para engadir novos artigos -->
+      <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-1">
+        <h2 class="text-xl font-bold mb-4 text-emerald-800">Novo Artigo</h2>
+        <form id="form-artigo" class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Nº Boletín</label>
+            <input type="number" id="numero_boletin" required class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Título</label>
+            <input type="text" id="titulo" required class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Autor/a</label>
+            <input type="text" id="autor" required class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Categoría</label>
+            <input type="text" id="categoria" placeholder="Ex: Botánica, Historia..." class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Ligazón ao PDF (URL)</label>
+            <input type="url" id="ligazon_pdf" placeholder="https://..." class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Resumo</label>
+            <textarea id="resumo" rows="3" class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+          </div>
+          <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg transition duration-200">
+            Gardar Artigo
+          </button>
+        </form>
+      </section>
+
+      <!-- Lista de artigos e buscador -->
+      <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-2 space-y-4">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-3">
+          <h2 class="text-xl font-bold text-emerald-800">Artigos rexistrados</h2>
+          <input type="text" id="input-busca" placeholder="Buscar por título ou autor..." class="w-full md:w-64 border rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+        </div>
+
+        <div id="lista-artigos" class="space-y-3">
+          <p class="text-slate-500 text-sm italic">Cargando artigos...</p>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <script>
+    // 1. Configurar Supabase
+    const SUPABASE_URL = 'https://hsdeflgbtjxvhougamlm.supabase.co/';
+    const SUPABASE_KEY = 'sb_publishable_TGgHJimsdhG1-QqlrVae_g_Emk6qdRT';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const form = document.getElementById('form-artigo');
+    const lista = document.getElementById('lista-artigos');
+    const inputBusca = document.getElementById('input-busca');
+
+    // 2. Cargar artigos da base de datos
+    async function cargarArtigos(filtro = '') {
+      let query = supabaseClient.from('artigos').select('*').order('numero_boletin', { ascending: false });
+
+      if (filtro) {
+        query = query.or(`titulo.ilike.%${filtro}%,autor.ilike.%${filtro}%,categoria.ilike.%${filtro}%`);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        lista.innerHTML = `<p class="text-red-500 text-sm">Erro ao cargar os datos: ${error.message}</p>`;
+        return;
+      }
+
+      if (data.length === 0) {
+        lista.innerHTML = '<p class="text-slate-500 text-sm">Non se atoparon artigos.</p>';
+        return;
+      }
+
+      lista.innerHTML = data.map(artigo => `
+        <div class="border border-slate-100 bg-slate-50 p-4 rounded-lg hover:shadow-md transition flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-start gap-2">
+              <span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">Boletín #${artigo.numero_boletin}</span>
+              ${artigo.categoria ? `<span class="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded">${artigo.categoria}</span>` : ''}
+            </div>
+            <h3 class="font-bold text-slate-800 mt-2">${artigo.titulo}</h3>
+            <p class="text-xs text-slate-500">Por: ${artigo.autor}</p>
+            ${artigo.resumo ? `<p class="text-sm text-slate-600 mt-2">${artigo.resumo}</p>` : ''}
+          </div>
+          
+          <div class="mt-4 pt-2 border-t border-slate-200 flex justify-between items-center">
+            ${artigo.ligazon_pdf ? `<a href="${artigo.ligazon_pdf}" target="_blank" class="text-xs text-emerald-600 font-semibold hover:underline">Ver documento PDF &rarr;</a>` : '<span></span>'}
+            
+            <button onclick="borrarArtigo(${artigo.id}, '${artigo.titulo.replace(/'/g, "\\'")}')" class="text-xs text-red-600 hover:text-red-800 font-semibold border border-red-200 hover:bg-red-50 px-2.5 py-1 rounded transition">
+              Eliminar
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // 3. Evento para engadir novo artigo
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const novoArtigo = {
+        numero_boletin: document.getElementById('numero_boletin').value,
+        titulo: document.getElementById('titulo').value,
+        autor: document.getElementById('autor').value,
+        categoria: document.getElementById('categoria').value || null,
+        ligazon_pdf: document.getElementById('ligazon_pdf').value || null,
+        resumo: document.getElementById('resumo').value || null,
+      };
+
+      const { error } = await supabaseClient.from('artigos').insert([novoArtigo]);
+
+      if (error) {
+        alert('Erro ao gardar: ' + error.message);
+      } else {
+        form.reset();
+        cargarArtigos(inputBusca.value);
+      }
+    });
+
+    // 4. Función para borrar un artigo
+    async function borrarArtigo(id, titulo) {
+      const confirmacion = confirm(`Estás seguro/a de que queres eliminar o artigo "${titulo}"?`);
+      if (!confirmacion) return;
+
+      const { error } = await supabaseClient.from('artigos').delete().eq('id', id);
+
+      if (error) {
+        alert('Erro ao eliminar o artigo: ' + error.message);
+      } else {
+        cargarArtigos(inputBusca.value);
+      }
+    }
+
+    // 5. Evento para buscar en tempo real
+    inputBusca.addEventListener('input', (e) => cargarArtigos(e.target.value));
+
+    // Carga inicial
+    cargarArtigos();
+  </script>
+</body>
+</html>
